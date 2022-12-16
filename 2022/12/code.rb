@@ -1,4 +1,4 @@
-require 'curses'
+require './../../window'
 require 'set'
 
 ELEVATIONS = ("a".."z").map.with_index { |a, i| [a, i]  }.to_h.merge("S" => 0, "E" => 25)
@@ -88,40 +88,25 @@ def calculate_distances(node, end_points:)
   node.visited = true
 end
 
-def build_window
-  @win ||= begin
-    Curses.init_screen
-    Curses.crmode
-    Curses.start_color
-    Curses.init_pair(1, 1, 0)
-    Curses.init_pair(2, 2, 0)
-
-    Curses::Window.new(0, 0, 1, 2)
-  end
-end
-
 def print_heightmap(map: HEIGHTMAP, node:)
-  win = build_window
-
-  map.each do |row|
-    row.each do |p|
-      if NODES[p.serialize]&.visited
-        win.attron(Curses.color_pair(1)) { win << p.elevation }
-      else
-        win << p.elevation
+  with_window do |win|
+    map.each do |row|
+      row.each do |p|
+        if NODES[p.serialize]&.visited
+          win.addtext(text: p.elevation, color: :red)
+        else
+          win.addtext(text: p.elevation)
+        end
       end
+      win.new_line
     end
-    win.addstr("\n")
+
+    win.new_line
+    win.addtext(text: "Part 1: #{NODES[START.serialize]&.distance}", color: :green, finish_line: true)
+    win.addtext(text: "Part 2: #{node.distance}", color: :green, finish_line: true)
+
+    win.refresh(redraw: true)
   end
-
-  win.addstr("\n")
-  win.addstr("Part 1: #{NODES[START.serialize]&.distance}")
-  win.addstr("\n")
-  win.addstr("Part 2: #{node.distance}")
-  win.addstr("\n")
-
-  win.setpos(0,0)
-  win.refresh
 end
 
 NODES_TO_VISIT.each { calculate_distances(_1, end_points: LOWEST_POINTS) }
@@ -130,6 +115,7 @@ lowest_point = LOWEST_POINTS.min_by { NODES[_1.serialize]&.distance || 100000 }
 
 print_heightmap(node: NODES[lowest_point.serialize])
 
-win = build_window
-win.refresh
-win.getch
+with_window do |win|
+  win.refresh(redraw: false)
+  win.getch
+end
